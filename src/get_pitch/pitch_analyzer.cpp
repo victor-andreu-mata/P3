@@ -10,8 +10,22 @@ using namespace std;
 namespace upc {
   void PitchAnalyzer::autocorrelation(const vector<float> &x, vector<float> &r) const {
 
-    for (unsigned int l = 0; l < r.size(); ++l) {
-  		/// \TODO Compute the autocorrelation r[l]
+    for (unsigned int l = 0; l < r.size(); ++l) {//triple barra, comentario doxygen
+  		/// \TODO Compute the autocorrelation r[l] 
+      /** 
+      \DONE Autocorrelación calculada: 
+      \f[
+      r[l] = \frac{1}{N}  \sum_{n=l}^{n=N} x[n] \cdot x[n-l]
+       \f]
+       1. Inicialitzem \f$r[l]\f$ a zero
+       2. Acumulem el producte de \f$x[n]\f$ per \f$x[n-l]\f$ per a \f$l \le n < N\f$
+       3. Dividim el resultat per \f$N\f$
+      */
+      r[l] = 0;
+      for (unsigned int n = l; n < x.size(); ++n){
+          r[l] += x[n] * x[n-l];
+      }
+      r[l] = r[l] / x.size();
     }
 
     if (r[0] == 0.0F) //to avoid log() and divide zero 
@@ -67,7 +81,7 @@ namespace upc {
     autocorrelation(x, r);
 
     vector<float>::const_iterator iR = r.begin(), iRMax = iR;
-
+    // calculamos de 2ms a 20 ms, sabemos que el pitch va de 50 a 500Hz
     /// \TODO 
 	/// Find the lag of the maximum value of the autocorrelation away from the origin.<br>
 	/// Choices to set the minimum value of the lag are:
@@ -75,6 +89,10 @@ namespace upc {
 	///    - The lag corresponding to the maximum value of the pitch.
     ///	   .
 	/// In either case, the lag should not exceed that of the minimum value of the pitch.
+
+    iRMax = r.begin() + npitch_min;
+
+    //Completar lo que queda de código con código.pdf
 
     unsigned int lag = iRMax - r.begin();
 

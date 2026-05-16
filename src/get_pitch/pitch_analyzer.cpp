@@ -11,7 +11,24 @@ namespace upc {
   void PitchAnalyzer::autocorrelation(const vector<float> &x, vector<float> &r) const {
 
     for (unsigned int l = 0; l < r.size(); ++l) {
-  		/// \TODO Compute the autocorrelation r[l]
+  		/// \TODO Compute the autocorrelation r[l] 
+      /** 
+      \DONE Autocorrelación calculada
+      \f[
+      r[l] = \frac{1}{N} \sum_{n=l}^{n=N} x[n] \cdot x[n-l]
+      \f]
+      1. Inicialitzem \f$r[l] a zero 
+      2. Acumulem el producte de \f$x[n] per \f$x[n-l] per a \f$l <=n < N
+      3. Dividim el resultat per \f$N
+      */
+
+    
+
+      r[l] = 0.0f;
+      for (unsigned int n = l; n < x.size(); n++){
+        r[l] += x[n] * x[n-l];
+      }
+      r[l] /= x.size();
     }
 
     if (r[0] == 0.0F) //to avoid log() and divide zero 
@@ -26,7 +43,8 @@ namespace upc {
 
     switch (win_type) {
     case HAMMING:
-      /// \TODO Implement the Hamming window
+      for (unsigned int i = 0; i < frameLen; ++i)
+      window[i] = 0.54F - 0.46F * cos(2.0F * M_PI * i / (frameLen - 1));
       break;
     case RECT:
     default:
@@ -47,11 +65,15 @@ namespace upc {
   }
 
   bool PitchAnalyzer::unvoiced(float pot, float r1norm, float rmaxnorm) const {
-    /// \TODO Implement a rule to decide whether the sound is voiced or not.
-    /// * You can use the standard features (pot, r1norm, rmaxnorm),
-    ///   or compute and use other ones.
-    return true;
+   
+    if (pot < llindar_pot) return true;
+    if (r1norm < llindar_r1norm) return true;
+    if (rmaxnorm < llindar_rmaxnorm) return true;
+    return false;
   }
+
+
+
 
   float PitchAnalyzer::compute_pitch(vector<float> & x) const {
     if (x.size() != frameLen)
@@ -68,17 +90,15 @@ namespace upc {
 
     vector<float>::const_iterator iR = r.begin(), iRMax = iR;
 
-    /// \TODO 
-	/// Find the lag of the maximum value of the autocorrelation away from the origin.<br>
-	/// Choices to set the minimum value of the lag are:
-	///    - The first negative value of the autocorrelation.
-	///    - The lag corresponding to the maximum value of the pitch.
-    ///	   .
-	/// In either case, the lag should not exceed that of the minimum value of the pitch.
+    iRMax = r.begin() + npitch_min;  
+    for(iR = iRMax; iR < r.begin()+npitch_max; iR++){
+        if(*iR > *iRMax){
+          iRMax = iR;
+        }
+      }
+      unsigned int lag = iRMax - r.begin();
 
-    unsigned int lag = iRMax - r.begin();
-
-    float pot = 10 * log10(r[0]);
+      float pot = 10 * log10(r[0]);
 
     //You can print these (and other) features, look at them using wavesurfer
     //Based on that, implement a rule for unvoiced

@@ -4,6 +4,8 @@
 #include <fstream>
 #include <string.h>
 #include <errno.h>
+#include <algorithm>
+#include <cmath>
 
 #include "wavfile_mono.h"
 #include "pitch_analyzer.h"
@@ -76,6 +78,14 @@ int main(int argc, const char *argv[]) {
   /// \TODO
   /// Preprocess the input signal in order to ease pitch estimation. For instance,
   /// central-clipping or low pass filtering may be used.
+
+  // Center clipping: pone a cero las muestras por debajo del umbral C
+  float C = 0.02F; // umbral: 2% de la amplitud máxima
+  float x_max = *max_element(x.begin(), x.end());
+  float clip_threshold = C * x_max;
+  for (auto& sample : x)
+    if (fabs(sample) < clip_threshold)
+      sample = 0.0F;
   
   // Iterate for each frame and save values in f0 vector
   vector<float>::iterator iX;
@@ -88,6 +98,22 @@ int main(int argc, const char *argv[]) {
   /// \TODO
   /// Postprocess the estimation in order to supress errors. For instance, a median filter
   /// or time-warping may be used.
+
+  // Filtro de mediana de longitud 3 sobre el vector f0
+  int median_len = 3;
+  vector<float> f0_filtered(f0.size());
+  for (int i = 0; i < (int)f0.size(); ++i) {
+    vector<float> window;
+    for (int j = i - median_len/2; j <= i + median_len/2; ++j) {
+      if (j >= 0 && j < (int)f0.size())
+        window.push_back(f0[j]);
+      else
+        window.push_back(0.0F);
+    }
+    sort(window.begin(), window.end());
+    f0_filtered[i] = window[window.size()/2];
+  }
+  f0 = f0_filtered;
 
   // Write f0 contour into the output file
   ofstream os(output_txt);

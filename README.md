@@ -46,12 +46,12 @@ Ejercicios básicos
         NOTA: es más que probable que tenga que usar Python, Octave/MATLAB u otro programa semejante para
         hacerlo. Se valorará la utilización de la biblioteca matplotlib de Python.
 
-          La siguiente figura muestra un segmento de 30 ms en una zona sonora de `prueba.wav`.
+        La siguiente figura muestra un segmento de 30 ms en una zona sonora de `prueba.wav`.
         En el subplot superior se aprecia la periodicidad de la señal con el periodo T₀ marcado.
         En el subplot inferior se muestra la autocorrelación normalizada `r[l]/r[0]`, donde el
         primer máximo secundario (en rojo) indica el periodo fundamental.
 
-        ![Señal temporal y autocorrelación](img/autocorr_analysis.png)
+      ![Señal temporal y autocorrelación](img/autocorr_analysis.png)
 
 
    * Determine el mejor candidato para el periodo de pitch localizando el primer máximo secundario de la
@@ -138,7 +138,7 @@ Ejercicios básicos
         La figura siguiente muestra la evolución temporal del pitch estimado junto a las tres features
         utilizadas para la decisión sonoro/sordo, con los umbrales iniciales marcados en rojo:
 
-        ![Features de sonoridad](img/features_voicing.png)
+      ![Features de sonoridad](img/features_voicing.png)
 
         Se puede observar que:
         - La **potencia** (`r[0]`) cae claramente en las zonas sordas (silencios, fricativas).
@@ -149,13 +149,13 @@ Ejercicios básicos
         La siguiente captura muestra el análisis en `wavesurfer` con el estimador de pitch
         incorporado y los paneles de features con desplazamiento de ventana de 15 ms:
 
-        ![Wavesurfer features](img/wavesurfer_features.png)
+      ![Wavesurfer features](img/wavesurfer_features.png)
 
         Se ha comparado el estimador implementado con el estimador interno de `wavesurfer`
         sobre la señal `prueba.wav`. La figura siguiente muestra los contornos de f0 obtenidos
         por ambos sistemas:
 
-        ![Comparación estimador propio vs Wavesurfer](img/comparison_wavesurfer.png)
+      ![Comparación estimador propio vs Wavesurfer](img/comparison_wavesurfer.png)
 
         De la comparación se extraen las siguientes conclusiones:
 
@@ -256,7 +256,7 @@ Ejercicios de ampliación
         get_pitch -p -40 -1 0.75 -M 0.45 prueba.wav prueba.f0
       ```
 
-        ![Mensaje de ayuda de get_pitch](img/help_screenshot.png)
+      ![Mensaje de ayuda de get_pitch](img/help_screenshot.png)
 
 - Implemente las técnicas que considere oportunas para optimizar las prestaciones del sistema de estimación
   de pitch.
@@ -281,7 +281,57 @@ Ejercicios de ampliación
   También se valorará la realización de un estudio de los parámetros involucrados. Por ejemplo, si se opta
   por implementar el filtro de mediana, se valorará el análisis de los resultados obtenidos en función de
   la longitud del filtro.
-   
+
+      Se ha aplicado **center clipping** sobre la señal de entrada antes de calcular la
+      autocorrelación. Esta técnica pone a cero las muestras cuya amplitud está por debajo
+      de un umbral `C`, calculado como una fracción de la amplitud máxima de la señal.
+      El efecto es eliminar el ruido de baja amplitud y reforzar la periodicidad de la señal,
+      lo que mejora la definición del máximo secundario de la autocorrelación.
+
+    ```cpp
+      float C = 0.02F;
+      float x_max = *max_element(x.begin(), x.end());
+      float clip_threshold = C * x_max;
+      for (auto& sample : x)
+        if (fabs(sample) < clip_threshold)
+          sample = 0.0F;
+    ```
+
+      Se ha aplicado un **filtro de mediana de longitud 3** sobre el vector de pitch estimado.
+      Este filtro elimina picos aislados (errores puntuales de estimación) sin afectar a las
+      transiciones sonoro/sordo. Para cada trama, se calcula la mediana entre ella y sus dos
+      vecinas, sustituyendo el valor original por la mediana.
+
+    ```cpp
+      int median_len = 3;
+      vector<float> f0_filtered(f0.size());
+      for (int i = 0; i < (int)f0.size(); ++i) {
+        vector<float> window;
+        for (int j = i - median_len/2; j <= i + median_len/2; ++j) {
+          if (j >= 0 && j < (int)f0.size())
+            window.push_back(f0[j]);
+          else
+            window.push_back(0.0F);
+        }
+        sort(window.begin(), window.end());
+        f0_filtered[i] = window[window.size()/2];
+      }
+      f0 = f0_filtered;
+    ```
+      | Métrica                              | Sin mejoras  | Con mejoras  |
+      |--------------------------------------|--------------|--------------|
+      | Sordas clasificadas como sonoras     | 296/7045 (4.20 %) | 200/7045 (2.84 %) |
+      | Sonoras clasificadas como sordas     | 400/4155 (9.63 %) | 380/4155 (9.15 %) |
+      | Errores gruesos de pitch (+20 %)     | 56/3755 (1.49 %)  | 48/3775 (1.27 %) |
+      | MSE errores finos                    | 2.42 %       | 2.66 %       |
+      | **Score TOTAL**                      | **90.76 %**  | **91.64 %**  |
+
+      Las mejoras aplicadas son center clipping en el preprocesado y filtro de mediana
+      de longitud 3 en el postprocesado. El score sube de 90.76% a 91.64%, con reducción
+      notable de falsas alarmas (4.20% → 2.84%) y de errores gruesos (1.49% → 1.27%).
+
+
+
 
 Evaluación *ciega* del estimador
 -------------------------------
